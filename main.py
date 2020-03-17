@@ -9,6 +9,7 @@ import argparse
 from buffer import Buffer
 from models import ActorCritic
 from baselines.envs import TorchEnv
+import subprocess
 
 
 def sac(args):
@@ -64,6 +65,7 @@ def sac(args):
                 p_targ.data.add_((1 - args.polyak) * p.data)
 
     def test_agent(deterministic=True):
+        episode_rets = []
         for j in range(args.num_test_episodes):
             o, d, ep_ret, ep_len = test_env.reset(), False, 0, 0
             while not(d or (ep_len == args.max_ep_len)):
@@ -71,11 +73,15 @@ def sac(args):
                 o, r, d = test_env.step(ac.act(torch.as_tensor(o, dtype=torch.float32).to(args.device), deterministic))
                 ep_ret += r
                 ep_len += 1
+            episode_rets.append(ep_ret)
+        return np.mean(np.array(episode_rets))
 
     # Prepare for interaction with environment
     total_steps = args.steps_per_epoch * args.epochs
     start_time = time.time()
     o, ep_ret, ep_len = env.reset(), 0, 0
+    episode_rewards = []
+    test_episode_rewards = []
 
     # Main loop: collect experience in env and update/log each epoch
     for t in range(total_steps):
@@ -98,6 +104,7 @@ def sac(args):
         # End of trajectory handling
         if d or (ep_len == args.max_ep_len):
             print("EPISODE REWARD: ", ep_ret)
+            episode_rewards.append(ep_ret)
             o, ep_ret, ep_len = env.reset(), 0, 0
 
         # Update handling
@@ -116,7 +123,18 @@ def sac(args):
         if (t+1) % args.steps_per_epoch == 0:
             epoch = (t+1) // args.steps_per_epoch
             # Test the performance of the deterministic version of the agent.
-            test_agent()
+            mean_test_reward = test_agent()
+            test_episode_rewards.append(mean_test_reward)
+            #save after every ten n_epochs
+            if epoch % 10 == 0:
+                #save stuff to logdir
+                np.save(args.logdir + "_episode_returns.npy", np.array(episode_rewards))
+                np.save(args.logdir + "_test_episode_returns.npy", np.array(test_episode_rewards))
+                subprocess.call(['rsync','--archive','--update','--compress','--progress',str(args.logdir) + "/",str(args.save_path)])
+                now = datetime.now()
+                current_time = str(now.strftime("%H:%M:%S"))
+                subprocess.call(['echo', f" TIME OF SAVE: {current_time}"])
+
 
 
 def boolcheck(x):
@@ -143,6 +161,8 @@ if __name__ == '__main__':
     parser.add_argument("--num_test_episodes",type=int,default=10)
     parser.add_argument("--batch_size",type=int,default=100)
     parser.add_argument("--render_env",type=boolcheck,default=False)
+    parser.add_argument("--logdir",type=str,default="log/")
+    parser.add_argument("--save_path",type=str,defualt="")
     args =parser.parse_args()
     args.device = DEVICE
     sac(args)
