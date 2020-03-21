@@ -148,7 +148,7 @@ if __name__ == '__main__':
     parser.add_argument("--seed",type=int, default=-1)
     parser.add_argument("--hidden_size",type=int, default=256)
     parser.add_argument("--steps_per_epoch", type=int, default=4000)
-    parser.add_argument("--epochs",type=int,default=100)
+    parser.add_argument("--epochs",type=int,default=1000)
     parser.add_argument("--buffer_size",type=int,default=int(1e6))
     parser.add_argument("--gamma",type=float,default=0.99)
     parser.add_argument("--polyak",type=float,default=0.995)
@@ -162,7 +162,7 @@ if __name__ == '__main__':
     parser.add_argument("--batch_size",type=int,default=100)
     parser.add_argument("--render_env",type=boolcheck,default=False)
     parser.add_argument("--logdir",type=str,default="log/")
-    parser.add_argument("--save_path",type=str,defualt="")
+    parser.add_argument("--save_path",type=str,default="")
     args =parser.parse_args()
     args.device = DEVICE
     sac(args)
